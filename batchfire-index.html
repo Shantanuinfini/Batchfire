@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BatchFire</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07070f;--surface:#0e0e1c;--surface2:#14141f;--surface3:#1c1c2e;
+  --border:#1e1e32;--border2:#2a2a42;--text:#ddddf0;--muted:#52527a;--dim:#6060a0;--placeholder:#7878b0;
+  --green:#00e5a0;--green-dim:rgba(0,229,160,0.1);--red:#ff4d6a;--red-dim:rgba(255,77,106,0.1);
+  --yellow:#ffd166;--yellow-dim:rgba(255,209,102,0.08);--blue:#4d9fff;--blue-dim:rgba(77,159,255,0.1);
+  --accent:#6c63ff;--accent-dim:rgba(108,99,255,0.12);--orange:#ff8c42;--orange-dim:rgba(255,140,66,0.1);
+  --sq:#00c875;--sq-dim:rgba(0,200,117,0.12);
+  --font-mono:'JetBrains Mono',monospace;--font-ui:'Syne',sans-serif;
+}
+body{font-family:var(--font-mono);background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* TOPBAR */
+.topbar{height:50px;display:flex;align-items:center;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;gap:0}
+.logo-wrap{padding:0 1.4rem;height:100%;display:flex;align-items:center;gap:0.7rem;border-right:1px solid var(--border);flex-shrink:0}
+.logo{font-family:var(--font-ui);font-weight:800;font-size:1.15rem;letter-spacing:-0.02em}
+.logo .fire{color:var(--orange)}
+.logo-sub{font-size:0.55rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border2);padding:0.12rem 0.45rem}
+.token-zone{flex:1;display:flex;align-items:center;gap:0.8rem;padding:0 1.2rem;border-right:1px solid var(--border)}
+.tlabel{font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.token-wrap{flex:1;position:relative}
+.token-inp{width:100%;font-family:var(--font-mono);font-size:0.7rem;background:var(--bg);border:1px solid var(--border);color:var(--yellow);padding:0.3rem 2rem 0.3rem 0.7rem;outline:none;transition:border-color 0.15s}
+.token-inp:focus{border-color:var(--yellow)}
+.token-inp::placeholder{color:var(--placeholder)}
+.eye-btn{position:absolute;right:0.4rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.75rem;line-height:1}
+.env-sel{font-family:var(--font-mono);font-size:0.65rem;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:0.3rem 0.5rem;outline:none;cursor:pointer}
+.tsaved{font-size:0.6rem;white-space:nowrap;transition:color 0.3s}
+.tsaved.ok{color:var(--green)}.tsaved.no{color:var(--muted)}
+.global-stats{display:flex;gap:1rem;padding:0 1.2rem;flex-shrink:0}
+.gstat{display:flex;flex-direction:column;align-items:center;gap:0.05rem;font-size:0.58rem;color:var(--muted)}
+.gstat-v{font-size:0.88rem;font-weight:700;color:var(--text)}
+.gstat-v.ok{color:var(--green)}.gstat-v.fail{color:var(--red)}
+
+/* NAV TABS (top-level sections) */
+.nav-tabs{height:38px;display:flex;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0}
+.nav-tab{font-size:0.65rem;letter-spacing:0.08em;text-transform:uppercase;padding:0 1.4rem;height:100%;display:flex;align-items:center;gap:0.5rem;cursor:pointer;color:var(--muted);border-right:1px solid var(--border);transition:all 0.12s;background:none;border-bottom:none;font-family:var(--font-mono)}
+.nav-tab:hover{color:var(--text);background:var(--surface3)}
+.nav-tab.active{color:var(--text);background:var(--bg);border-bottom:2px solid var(--orange)}
+.nav-tab .nav-count{background:var(--orange);color:#000;font-size:0.5rem;font-weight:700;padding:0.1rem 0.35rem;border-radius:10px;min-width:16px;text-align:center}
+
+/* MAIN */
+.main{flex:1;display:flex;overflow:hidden}
+.section{display:none;flex:1;flex-direction:column;overflow:hidden}
+.section.active{display:flex}
+
+/* ════ IMPORT SECTION ════ */
+.import-layout{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:0;overflow:hidden}
+.import-left{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.panel-hdr{height:36px;display:flex;align-items:center;justify-content:space-between;padding:0 1.2rem;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.panel-title{font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:0.5rem}
+.pdot{width:5px;height:5px;border-radius:50%;background:var(--orange)}
+.import-paste-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.paste-ta{flex:1;font-family:var(--font-mono);font-size:0.72rem;line-height:1.75;background:transparent;border:none;outline:none;resize:none;color:var(--text);padding:1rem 1.2rem;overflow-y:auto}
+.paste-ta::placeholder{color:var(--placeholder)}
+.parse-bar{padding:0.6rem 1.2rem;border-top:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:0.7rem;flex-shrink:0}
+.btn{font-family:var(--font-mono);font-size:0.65rem;letter-spacing:0.06em;padding:0.35rem 0.9rem;border:none;cursor:pointer;transition:all 0.13s;white-space:nowrap}
+.btn:hover{opacity:0.85}.btn:disabled{opacity:0.35;cursor:not-allowed}
+.btn-orange{background:var(--orange);color:#000;font-weight:700}
+.btn-green{background:var(--sq);color:#000;font-weight:700}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--muted)}
+.btn-outline:hover{color:var(--text);border-color:var(--text)}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-red-ghost{background:transparent;border:1px solid var(--border);color:var(--red);font-size:0.58rem;padding:0.18rem 0.45rem}
+.btn-red-ghost:hover{background:var(--red-dim);border-color:var(--red)}
+.parse-hint{font-size:0.62rem;color:var(--muted)}
+
+/* Parsed requests list */
+.parsed-list{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.parsed-list::-webkit-scrollbar{width:3px}
+.parsed-list::-webkit-scrollbar-thumb{background:var(--border2)}
+.parsed-item{border-bottom:1px solid var(--border);padding:0.7rem 1.2rem;cursor:pointer;transition:background 0.1s;display:flex;flex-direction:column;gap:0.35rem}
+.parsed-item:hover{background:var(--surface2)}
+.parsed-item.selected{background:var(--surface3);border-left:3px solid var(--orange)}
+.pi-top{display:flex;align-items:center;gap:0.6rem}
+.pi-num{font-size:0.58rem;color:var(--dim);min-width:20px}
+.method-tag{font-size:0.58rem;font-weight:700;padding:0.12rem 0.45rem;letter-spacing:0.06em}
+.m-POST{background:var(--sq-dim);color:var(--sq);border:1px solid rgba(0,200,117,0.3)}
+.m-GET{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(77,159,255,0.3)}
+.m-PUT{background:var(--yellow-dim);color:var(--yellow);border:1px solid rgba(255,209,102,0.3)}
+.m-DELETE{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,77,106,0.3)}
+.pi-name{font-size:0.72rem;color:var(--text);flex:1;font-weight:500}
+.pi-url{font-size:0.62rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pi-vars{display:flex;gap:0.3rem;flex-wrap:wrap}
+.pi-var-chip{font-size:0.55rem;padding:0.1rem 0.4rem;background:var(--accent-dim);border:1px solid rgba(108,99,255,0.35);color:#a09fff;border-radius:2px}
+.empty-parsed{padding:3rem 1.5rem;text-align:center;color:var(--dim);font-size:0.72rem;line-height:2.2}
+
+/* ════ REQUESTS SECTION ════ */
+.req-layout{flex:1;display:flex;overflow:hidden}
+.req-left{width:400px;min-width:280px;display:flex;flex-direction:column;border-right:1px solid var(--border);flex-shrink:0}
+.req-tabs-bar{height:38px;display:flex;align-items:center;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0}
+.req-tabs-bar::-webkit-scrollbar{height:2px}
+.req-tabs-bar::-webkit-scrollbar-thumb{background:var(--border2)}
+.rtab{font-size:0.62rem;padding:0 0.9rem;height:100%;display:flex;align-items:center;gap:0.4rem;cursor:pointer;color:var(--muted);border-right:1px solid var(--border);white-space:nowrap;transition:all 0.1s;flex-shrink:0}
+.rtab:hover{color:var(--text);background:var(--surface2)}
+.rtab.active{color:var(--text);background:var(--bg);border-bottom:2px solid var(--sq)}
+.rtab-close{background:none;border:none;color:var(--dim);cursor:pointer;font-size:0.65rem;line-height:1;padding:0}
+.rtab-close:hover{color:var(--red)}
+.rtab-add{padding:0 0.7rem;height:100%;display:flex;align-items:center;cursor:pointer;color:var(--muted);font-size:0.9rem;background:none;border:none;flex-shrink:0}
+.rtab-add:hover{color:var(--sq)}
+.preset-wrap{position:relative;flex-shrink:0}
+.preset-trigger{padding:0 0.9rem;height:38px;display:flex;align-items:center;font-size:0.58rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);border:none;border-left:1px solid var(--border);background:none;cursor:pointer;font-family:var(--font-mono)}
+.preset-trigger:hover{color:var(--sq)}
+.preset-dd{position:absolute;top:100%;right:0;z-index:60;background:var(--surface2);border:1px solid var(--border2);min-width:230px;display:none}
+.preset-dd.open{display:block}
+.preset-item{padding:0.55rem 1rem;cursor:pointer;border-bottom:1px solid var(--dim);display:flex;flex-direction:column;gap:0.1rem}
+.preset-item:hover{background:var(--surface3)}
+.preset-item-name{font-size:0.7rem;color:var(--text);font-weight:500}
+.preset-item-url{font-size:0.58rem;color:var(--muted)}
+
+.req-editor{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.req-meta-bar{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.req-name-inp{font-family:var(--font-ui);font-weight:600;font-size:0.8rem;background:transparent;border:none;outline:none;color:var(--text);flex:1}
+.req-name-inp::placeholder{color:var(--placeholder)}
+.url-bar{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.method-sel{font-family:var(--font-mono);font-size:0.7rem;font-weight:700;background:var(--surface2);border:none;border-right:1px solid var(--border);color:var(--sq);padding:0.5rem 0.8rem;outline:none;cursor:pointer}
+.url-inp{flex:1;font-family:var(--font-mono);font-size:0.7rem;background:transparent;border:none;outline:none;color:var(--text);padding:0.5rem 0.8rem}
+.url-inp::placeholder{color:var(--placeholder)}
+.body-label{padding:0.35rem 1rem;font-size:0.55rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);background:var(--surface);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.body-ta{flex:1;font-family:var(--font-mono);font-size:0.7rem;line-height:1.7;background:transparent;border:none;outline:none;resize:none;color:var(--text);padding:0.8rem 1rem;overflow-y:auto}
+.body-ta::placeholder{color:var(--placeholder)}
+.vars-strip{padding:0.4rem 1rem;border-top:1px solid var(--border);background:var(--surface);display:flex;flex-wrap:wrap;gap:0.35rem;min-height:32px;flex-shrink:0}
+.vchip{font-size:0.58rem;padding:0.12rem 0.5rem;background:var(--accent-dim);border:1px solid rgba(108,99,255,0.4);color:#a09fff}
+.vhint{font-size:0.58rem;color:var(--dim);align-self:center}
+
+/* RIGHT PANEL: vars + results */
+.right-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* VARS */
+.vars-section{height:260px;min-height:160px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.vars-body{flex:1;display:flex;overflow:hidden}
+.var-col{flex:1;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;min-width:120px}
+.var-col:last-child{border-right:none}
+.vc-head{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 0.8rem;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.vc-name{font-size:0.6rem;color:#a09fff;font-weight:500;letter-spacing:0.05em}
+.vc-count{font-size:0.55rem;color:var(--dim)}
+.vc-list{flex:1;overflow-y:auto}
+.vc-list::-webkit-scrollbar{width:3px}
+.vc-list::-webkit-scrollbar-thumb{background:var(--border2)}
+.vc-entry{display:flex;align-items:center;padding:0 0.7rem;height:26px;border-bottom:1px solid var(--dim);gap:0.3rem}
+.vc-entry:hover{background:var(--surface2)}
+.vc-idx{font-size:0.55rem;color:var(--dim);min-width:16px;text-align:right}
+.vc-val-inp{flex:1;background:transparent;border:none;outline:none;font-family:var(--font-mono);font-size:0.68rem;color:var(--green);min-width:0}
+.vc-del{background:none;border:none;color:var(--dim);cursor:pointer;font-size:0.62rem;line-height:1;padding:0}
+.vc-del:hover{color:var(--red)}
+.vc-add-row{padding:0.35rem 0.6rem;border-top:1px solid var(--border);background:var(--surface);display:flex;gap:0.4rem;flex-shrink:0}
+.vc-inp{flex:1;font-family:var(--font-mono);font-size:0.65rem;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:0.22rem 0.45rem;outline:none;min-width:0}
+.vc-inp::placeholder{color:var(--placeholder)}
+.vc-inp:focus{border-color:var(--accent)}
+
+/* Smart suggest dropdown */
+.suggest-wrap{position:relative}
+.suggest-dd{position:absolute;bottom:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border2);z-index:80;max-height:160px;overflow-y:auto;display:none}
+.suggest-dd.open{display:block}
+.suggest-item{padding:0.4rem 0.7rem;cursor:pointer;font-size:0.65rem;border-bottom:1px solid var(--dim);display:flex;flex-direction:column;gap:0.08rem}
+.suggest-item:hover{background:var(--surface3)}
+.si-val{color:var(--green);font-size:0.68rem}
+.si-src{color:var(--muted);font-size:0.55rem}
+
+/* RESULTS */
+.results-section{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.run-bar{padding:0.55rem 1.2rem;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:0.8rem;flex-wrap:wrap;flex-shrink:0}
+.btn-run{font-family:var(--font-ui);font-weight:700;font-size:0.72rem;letter-spacing:0.03em;padding:0.45rem 1.4rem;background:var(--sq);color:#000;border:none;cursor:pointer;transition:all 0.13s}
+.btn-run:hover{background:#00f08a}.btn-run:disabled{opacity:0.4;cursor:not-allowed}
+.btn-stop{font-family:var(--font-mono);font-size:0.65rem;padding:0.45rem 1rem;background:var(--red-dim);border:1px solid var(--red);color:var(--red);cursor:pointer;display:none}
+.scope-btns{display:flex;gap:0.3rem}
+.scope-btn{font-family:var(--font-mono);font-size:0.58rem;letter-spacing:0.05em;padding:0.22rem 0.65rem;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer}
+.scope-btn.active{background:var(--surface2);border-color:var(--accent);color:var(--accent)}
+.run-opt{font-size:0.62rem;color:var(--muted);display:flex;align-items:center;gap:0.4rem}
+.run-opt input{font-family:var(--font-mono);font-size:0.65rem;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:0.22rem 0.45rem;outline:none;width:48px;text-align:center}
+.results-list{flex:1;overflow-y:auto}
+.results-list::-webkit-scrollbar{width:4px}
+.results-list::-webkit-scrollbar-thumb{background:var(--border2)}
+.result-row{border-bottom:1px solid var(--dim)}
+.result-main{display:grid;grid-template-columns:26px 52px 90px 1fr 65px;align-items:center;gap:0.5rem;padding:0.4rem 1.2rem;cursor:pointer;font-size:0.68rem;transition:background 0.1s}
+.result-main:hover{background:var(--surface2)}
+.r-num{color:var(--dim);font-size:0.58rem;text-align:right}
+.r-st{font-size:0.62rem;font-weight:700;padding:0.12rem 0.4rem;text-align:center}
+.s-ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(0,229,160,0.3)}
+.s-err{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,77,106,0.3)}
+.s-run{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(77,159,255,0.3);animation:blink 1s infinite}
+.s-wait{color:var(--dim);border:1px solid var(--dim)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.4}}
+.r-req{color:var(--muted);font-size:0.6rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.r-val{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.r-time{color:var(--muted);font-size:0.6rem;text-align:right}
+.result-drawer{display:none;background:var(--bg);border-top:1px solid var(--dim);padding:0.65rem 1.2rem;font-size:0.65rem;line-height:1.7;color:var(--green);max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
+.result-drawer::-webkit-scrollbar{width:3px}
+.result-drawer::-webkit-scrollbar-thumb{background:var(--border2)}
+.result-drawer.open{display:block}
+.progress-strip{padding:0.45rem 1.2rem;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.prog-bg{height:2px;background:var(--border)}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--sq));width:0;transition:width 0.3s ease}
+.prog-meta{display:flex;justify-content:space-between;font-size:0.58rem;color:var(--muted);margin-top:0.3rem}
+.empty{padding:2.5rem 1.5rem;text-align:center;color:var(--dim);font-size:0.7rem;line-height:2.2}
+.empty strong{color:var(--muted)}
+
+/* BULK MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:100;display:none;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);width:500px;max-height:80vh;display:flex;flex-direction:column}
+.modal-head{padding:0.9rem 1.2rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-title{font-family:var(--font-ui);font-weight:700;font-size:0.9rem}
+.modal-body{padding:1rem 1.2rem;display:flex;flex-direction:column;gap:0.8rem;flex:1;overflow-y:auto}
+.modal-label{font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted)}
+.modal-select{font-family:var(--font-mono);font-size:0.7rem;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.6rem;outline:none;width:100%}
+.modal-ta{font-family:var(--font-mono);font-size:0.7rem;background:var(--bg);border:1px solid var(--border);color:var(--green);padding:0.65rem;outline:none;resize:none;height:180px;line-height:1.7;width:100%}
+.modal-ta:focus{border-color:var(--green)}
+.modal-ta::placeholder{color:var(--placeholder)}
+.modal-foot{padding:0.75rem 1.2rem;border-top:1px solid var(--border);display:flex;gap:0.6rem;justify-content:flex-end}
+
+/* RESIZE */
+.resize-h{width:4px;background:var(--border);cursor:col-resize;flex-shrink:0;transition:background 0.15s}
+.resize-h:hover{background:var(--accent)}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo-wrap">
+    <div class="logo">Batch<span class="fire">Fire</span></div>
+    <span class="logo-sub">Square API</span>
+  </div>
+  <div class="token-zone">
+    <span class="tlabel">Token</span>
+    <div class="token-wrap">
+      <input class="token-inp" id="tokenInp" type="password" placeholder="EAAAl... or sandbox-sq0..." autocomplete="off" oninput="onTokenInput()">
+      <button class="eye-btn" onclick="toggleEye()">👁</button>
+    </div>
+    <select class="env-sel" id="envSel" onchange="saveToken()">
+      <option value="sandbox" selected>Sandbox</option>
+      <option value="prod">Production</option>
+    </select>
+    <span class="tsaved no" id="tSaved">Not saved</span>
+  </div>
+  <div class="global-stats">
+    <div class="gstat"><span class="gstat-v" id="gTot">0</span><span>Total</span></div>
+    <div class="gstat"><span class="gstat-v ok" id="gOk">0</span><span>OK</span></div>
+    <div class="gstat"><span class="gstat-v fail" id="gFail">0</span><span>Failed</span></div>
+    <div class="gstat"><span class="gstat-v" id="gAvg">—</span><span>Avg ms</span></div>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="nav-tabs">
+  <button class="nav-tab active" id="nav-import" onclick="showSection('import')">⬇ cURL Import <span class="nav-count" id="nc-import">0</span></button>
+  <button class="nav-tab" id="nav-requests" onclick="showSection('requests')">⚡ Requests <span class="nav-count" id="nc-requests">0</span></button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ══ IMPORT SECTION ══ -->
+  <div class="section active" id="sec-import">
+    <div class="import-layout">
+      <!-- Left: paste area -->
+      <div class="import-left">
+        <div class="panel-hdr">
+          <div class="panel-title"><div class="pdot"></div> Paste cURL Commands</div>
+          <button class="btn btn-outline" style="font-size:0.58rem;padding:0.2rem 0.6rem" onclick="clearPaste()">Clear</button>
+        </div>
+        <div class="import-paste-area">
+          <textarea class="paste-ta" id="pasteArea" spellcheck="false" placeholder="Paste one or more cURL commands here — copy straight from Claude or anywhere.
+
+BatchFire will automatically detect and split multiple requests.
+
+Example:
+curl -X POST https://connect.squareupsandbox.com/v2/customers \
+  -H 'Content-Type: application/json' \
+  -d '{&quot;given_name&quot;:&quot;{{given_name}}&quot;,&quot;email_address&quot;:&quot;{{email}}&quot;}'
+
+curl -X POST https://connect.squareupsandbox.com/v2/bookings \
+  -H 'Content-Type: application/json' \
+  -d '{&quot;booking&quot;:{&quot;customer_id&quot;:&quot;{{customer_id}}&quot;}}'"></textarea>
+        </div>
+        <div class="parse-bar">
+          <button class="btn btn-orange" onclick="parseCurls()">⚡ Parse &amp; Detect</button>
+          <button class="btn btn-green" id="importAllBtn" onclick="importAllParsed()" disabled>→ Add All to Requests</button>
+          <span class="parse-hint" id="parseHint">Paste cURLs above then click Parse</span>
+        </div>
+      </div>
+      <!-- Right: parsed preview -->
+      <div style="display:flex;flex-direction:column;overflow:hidden">
+        <div class="panel-hdr">
+          <div class="panel-title"><div class="pdot" style="background:var(--sq)"></div> Detected Requests</div>
+          <span style="font-size:0.6rem;color:var(--muted)" id="parsedCountLabel">—</span>
+        </div>
+        <div class="parsed-list" id="parsedList">
+          <div class="empty-parsed">Parsed requests will appear here.<br><span style="color:var(--dim)">BatchFire auto-splits multiple cURLs.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ REQUESTS SECTION ══ -->
+  <div class="section" id="sec-requests">
+    <div class="req-layout">
+      <!-- Left: tabs + editor -->
+      <div class="req-left" id="reqLeft">
+        <div class="req-tabs-bar" id="reqTabsBar">
+          <button class="rtab-add" onclick="addTab()" title="New request">＋</button>
+          <div class="preset-wrap">
+            <button class="preset-trigger" onclick="togglePresets()">Presets ▾</button>
+            <div class="preset-dd" id="presetDd">
+              <div class="preset-item" onclick="loadPreset('create_customer')"><span class="preset-item-name">Create Customer</span><span class="preset-item-url">POST /v2/customers</span></div>
+              <div class="preset-item" onclick="loadPreset('create_booking')"><span class="preset-item-name">Create Booking</span><span class="preset-item-url">POST /v2/bookings</span></div>
+              <div class="preset-item" onclick="loadPreset('list_customers')"><span class="preset-item-name">List Customers</span><span class="preset-item-url">GET /v2/customers</span></div>
+              <div class="preset-item" onclick="loadPreset('search_avail')"><span class="preset-item-name">Search Availability</span><span class="preset-item-url">POST /v2/bookings/availability/search</span></div>
+              <div class="preset-item" onclick="loadPreset('create_payment')"><span class="preset-item-name">Create Payment</span><span class="preset-item-url">POST /v2/payments</span></div>
+              <div class="preset-item" onclick="loadPreset('cancel_booking')"><span class="preset-item-name">Cancel Booking</span><span class="preset-item-url">POST /v2/bookings/{{booking_id}}/cancel</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="req-editor" id="reqEditor">
+          <div class="empty"><strong>No requests yet.</strong><br>Click ＋, use a Preset,<br>or import from the <strong>cURL Import</strong> tab.</div>
+        </div>
+      </div>
+
+      <div class="resize-h" id="resizeH"></div>
+
+      <!-- Right: vars + results -->
+      <div class="right-panel">
+        <!-- Variables -->
+        <div class="vars-section">
+          <div class="panel-hdr">
+            <div class="panel-title"><div class="pdot" style="background:var(--green)"></div> Variables <span style="color:var(--dim);font-size:0.55rem;margin-left:0.4rem">— values matched row-by-row across all columns</span></div>
+            <div style="display:flex;gap:0.5rem">
+              <button class="btn btn-outline" style="font-size:0.58rem;padding:0.2rem 0.6rem" onclick="openBulk()">Bulk Import</button>
+              <button class="btn btn-outline" style="font-size:0.58rem;padding:0.2rem 0.6rem" onclick="clearAllVars()">Clear</button>
+            </div>
+          </div>
+          <div class="vars-body" id="varsBody">
+            <div class="empty" style="padding:1.2rem;font-size:0.68rem;width:100%">Use <code style="color:#a09fff">{{variable}}</code> in your request URLs or body — columns appear here automatically.</div>
+          </div>
+        </div>
+        <!-- Results -->
+        <div class="results-section">
+          <div class="run-bar">
+            <button class="btn-run" id="runBtn" onclick="runAll()">▶ Run All</button>
+            <button class="btn-stop" id="stopBtn" onclick="stopAll()">■ Stop</button>
+            <div class="scope-btns">
+              <button class="scope-btn active" id="sc-all" onclick="setScope('all')">All Requests</button>
+              <button class="scope-btn" id="sc-active" onclick="setScope('active')">Active Tab</button>
+            </div>
+            <div class="run-opt">⚡<input id="concInp" type="number" value="3" min="1" max="20"> parallel</div>
+            <div class="run-opt">⏱<input id="delayInp" type="number" value="200" min="0" max="9999"> ms</div>
+            <button class="btn btn-outline" style="font-size:0.58rem;padding:0.2rem 0.6rem;margin-left:auto" onclick="clearResults()">Clear</button>
+          </div>
+          <div class="results-list" id="resultsList">
+            <div class="empty">Results appear here after running.<br><span style="color:var(--dim)">Click any row to expand the response.</span></div>
+          </div>
+          <div class="progress-strip">
+            <div class="prog-bg"><div class="prog-fill" id="progFill"></div></div>
+            <div class="prog-meta"><span id="progText">Ready</span><span id="progPct"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BULK MODAL -->
+<div class="overlay" id="bulkOverlay" onclick="closeBulkOutside(event)">
+  <div class="modal">
+    <div class="modal-head"><span class="modal-title">Bulk Import Values</span><button class="btn btn-outline" style="font-size:0.58rem;padding:0.2rem 0.6rem" onclick="closeBulk()">✕</button></div>
+    <div class="modal-body">
+      <div>
+        <div class="modal-label" style="margin-bottom:0.4rem">Variable to fill</div>
+        <select class="modal-select" id="bulkVarSel"></select>
+      </div>
+      <div>
+        <div class="modal-label" style="margin-bottom:0.4rem">Values — one per line</div>
+        <textarea class="modal-ta" id="bulkTa" placeholder="CUST_001&#10;CUST_002&#10;CUST_003"></textarea>
+      </div>
+      <div style="font-size:0.6rem;color:var(--muted);line-height:1.7">💡 Row indices are matched across variables — Row 1 of <code style="color:#a09fff">customer_id</code> pairs with Row 1 of <code style="color:#a09fff">email</code>, etc.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeBulk()">Cancel</button>
+      <button class="btn btn-green" onclick="doBulkImport()">Import</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let tabs = [];
+let activeTabId = null;
+let varData = {};        // { varName: [val,...] }
+let responseStore = [];  // accumulated response data for smart suggestions
+let parsedCurls = [];
+let results = [];
+let scope = 'all';
+let running = false;
+let stopFlag = false;
+let gStats = { ok:0, fail:0, times:[] };
+
+const BASE = { prod:'https://connect.squareup.com', sandbox:'https://connect.squareupsandbox.com' };
+
+// ═══════════════════════════════════════════
+// TOKEN
+// ═══════════════════════════════════════════
+const saveTokenDebounced = debounce(saveToken, 700);
+function onTokenInput() {
+  document.getElementById('tSaved').className='tsaved no';
+  document.getElementById('tSaved').textContent='Unsaved';
+  saveTokenDebounced();
+}
+function saveToken() {
+  const t=document.getElementById('tokenInp').value.trim();
+  const e=document.getElementById('envSel').value;
+  localStorage.setItem('bf_token',t);
+  localStorage.setItem('bf_env',e);
+  if(t){document.getElementById('tSaved').className='tsaved ok';document.getElementById('tSaved').textContent='✓ Saved';}
+}
+function toggleEye(){const i=document.getElementById('tokenInp');i.type=i.type==='password'?'text':'password';}
+function loadToken(){
+  const t=localStorage.getItem('bf_token');
+  const e=localStorage.getItem('bf_env')||'sandbox';
+  if(t){document.getElementById('tokenInp').value=t;document.getElementById('tSaved').className='tsaved ok';document.getElementById('tSaved').textContent='✓ Saved';}
+  document.getElementById('envSel').value=e;
+}
+
+// ═══════════════════════════════════════════
+// SECTIONS
+// ═══════════════════════════════════════════
+function showSection(s){
+  document.querySelectorAll('.section').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(el=>el.classList.remove('active'));
+  document.getElementById('sec-'+s).classList.add('active');
+  document.getElementById('nav-'+s).classList.add('active');
+}
+
+// ═══════════════════════════════════════════
+// CURL PARSER
+// ═══════════════════════════════════════════
+function splitCurls(raw) {
+  // Split on lines that start a new curl command
+  const lines = raw.split('\n');
+  const blocks = [];
+  let current = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^curl\s/i.test(trimmed) && current.length > 0) {
+      blocks.push(current.join('\n'));
+      current = [line];
+    } else {
+      current.push(line);
+    }
+  }
+  if (current.some(l => l.trim())) blocks.push(current.join('\n'));
+  return blocks.filter(b => /curl\s/i.test(b));
+}
+
+function parseSingleCurl(raw) {
+  const s = raw.replace(/\\\s*\n/g,' ').replace(/\s+/g,' ').trim();
+  const result = { method:'GET', url:'', headers:{}, body:null, name:'' };
+
+  // URL
+  const urlM = s.match(/curl\s+(?:-[a-zA-Z]\s+\S+\s+|--\w[\w-]*(?:=|\s+)\S+\s+)*['"]?(https?:\/\/[^\s'"]+)['"]?/) 
+             || s.match(/['"]?(https?:\/\/[^\s'"]+)['"]?/);
+  if (urlM) result.url = urlM[urlM.length-1].replace(/['"]/g,'');
+
+  // Method
+  const mM = s.match(/-X\s+(['"]?)(\w+)\1/);
+  if (mM) result.method = mM[2].toUpperCase();
+
+  // Headers
+  const hRe = /-H\s+['"]([^'"]+)['"]/g;
+  let hm;
+  while ((hm=hRe.exec(s))!==null) {
+    const idx = hm[1].indexOf(':');
+    if (idx>0) result.headers[hm[1].slice(0,idx).trim()] = hm[1].slice(idx+1).trim();
+  }
+
+  // Body
+  const bM = s.match(/(?:-d|--data(?:-raw)?)\s+'([\s\S]+?)'(?=\s*(?:-[A-Z]|--|$))/i)
+           || s.match(/(?:-d|--data(?:-raw)?)\s+"([\s\S]+?)"(?=\s*(?:-[A-Z]|--|$))/i)
+           || s.match(/(?:-d|--data(?:-raw)?)\s+'([\s\S]+?)'\s*$/i)
+           || s.match(/(?:-d|--data(?:-raw)?)\s+"([\s\S]+?)"\s*$/i);
+  if (bM) { result.body = bM[1].replace(/\\"/g,'"'); if (!mM) result.method='POST'; }
+
+  // Auto-name from URL path
+  const pathM = result.url.match(/\/v\d+(\/[^?]+)/);
+  if (pathM) {
+    const parts = pathM[1].split('/').filter(Boolean);
+    result.name = parts.map(p=>p.charAt(0).toUpperCase()+p.slice(1)).join(' ').replace(/\{[^}]+\}/g,'').trim() || 'Request';
+  } else result.name = 'Request';
+
+  // Detect vars
+  result.vars = [...new Set([...(result.url+' '+(result.body||'')).matchAll(/\{\{(\w+)\}\}/g)].map(m=>m[1]))];
+
+  return result;
+}
+
+function parseCurls() {
+  const raw = document.getElementById('pasteArea').value.trim();
+  if (!raw) return;
+  const blocks = splitCurls(raw);
+  if (!blocks.length) {
+    document.getElementById('parseHint').textContent = 'No valid cURL commands found.';
+    return;
+  }
+  parsedCurls = blocks.map(parseSingleCurl);
+  renderParsedList();
+  document.getElementById('parseHint').textContent = `${parsedCurls.length} request${parsedCurls.length!==1?'s':''} detected`;
+  document.getElementById('parsedCountLabel').textContent = parsedCurls.length + ' requests';
+  document.getElementById('importAllBtn').disabled = false;
+  document.getElementById('nc-import').textContent = parsedCurls.length;
+}
+
+function renderParsedList() {
+  const list = document.getElementById('parsedList');
+  if (!parsedCurls.length) {
+    list.innerHTML = `<div class="empty-parsed">Parsed requests will appear here.<br><span style="color:var(--dim)">BatchFire auto-splits multiple cURLs.</span></div>`;
+    return;
+  }
+  list.innerHTML = parsedCurls.map((c,i)=>`
+    <div class="parsed-item" id="pi-${i}">
+      <div class="pi-top">
+        <span class="pi-num">${i+1}</span>
+        <span class="method-tag m-${c.method}">${c.method}</span>
+        <span class="pi-name">${esc(c.name)}</span>
+        <button class="btn btn-outline" style="font-size:0.55rem;padding:0.15rem 0.55rem;margin-left:auto" onclick="importOne(${i})">Add →</button>
+      </div>
+      <div class="pi-url">${esc(c.url)}</div>
+      ${c.vars.length?`<div class="pi-vars">${c.vars.map(v=>`<span class="pi-var-chip">{{${v}}}</span>`).join('')}</div>`:''}
+    </div>`).join('');
+}
+
+function importOne(i) {
+  const c = parsedCurls[i];
+  addTab(c);
+  showSection('requests');
+}
+
+function importAllParsed() {
+  parsedCurls.forEach(c=>addTab(c));
+  showSection('requests');
+}
+
+function clearPaste() {
+  document.getElementById('pasteArea').value='';
+  parsedCurls=[];
+  renderParsedList();
+  document.getElementById('parseHint').textContent='Paste cURLs above then click Parse';
+  document.getElementById('parsedCountLabel').textContent='—';
+  document.getElementById('importAllBtn').disabled=true;
+  document.getElementById('nc-import').textContent='0';
+}
+
+// ═══════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════
+const PRESETS = {
+  create_customer:{name:'Create Customer',method:'POST',url:'/v2/customers',body:`{\n  "given_name": "{{given_name}}",\n  "family_name": "{{family_name}}",\n  "email_address": "{{email}}",\n  "phone_number": "{{phone}}",\n  "idempotency_key": "{{idempotency_key}}"\n}`},
+  create_booking:{name:'Create Booking',method:'POST',url:'/v2/bookings',body:`{\n  "booking": {\n    "start_at": "{{start_at}}",\n    "location_id": "{{location_id}}",\n    "customer_id": "{{customer_id}}",\n    "customer_note": "{{note}}",\n    "appointment_segments": [{\n      "duration_minutes": {{duration}},\n      "service_variation_id": "{{service_variation_id}}",\n      "team_member_id": "{{team_member_id}}",\n      "service_variation_version": {{service_version}}\n    }]\n  },\n  "idempotency_key": "{{idempotency_key}}"\n}`},
+  list_customers:{name:'List Customers',method:'GET',url:'/v2/customers',body:''},
+  search_avail:{name:'Search Availability',method:'POST',url:'/v2/bookings/availability/search',body:`{\n  "query": {\n    "filter": {\n      "start_at_range": {"start_at":"{{range_start}}","end_at":"{{range_end}}"},\n      "location_id": "{{location_id}}",\n      "segment_filters": [{"service_variation_id":"{{service_variation_id}}"}]\n    }\n  }\n}`},
+  create_payment:{name:'Create Payment',method:'POST',url:'/v2/payments',body:`{\n  "source_id": "{{source_id}}",\n  "idempotency_key": "{{idempotency_key}}",\n  "amount_money": {"amount":{{amount_cents}},"currency":"USD"},\n  "customer_id": "{{customer_id}}"\n}`},
+  cancel_booking:{name:'Cancel Booking',method:'POST',url:'/v2/bookings/{{booking_id}}/cancel',body:`{\n  "idempotency_key": "{{idempotency_key}}",\n  "booking_version": {{booking_version}}\n}`},
+};
+
+function addTab(data) {
+  const id = 't'+Date.now()+Math.random().toString(36).slice(2,6);
+  tabs.push({ id, name:data?.name||'Request', method:data?.method||'POST', url:data?.url||'', body:data?.body||'' });
+  activeTabId = id;
+  syncVars();
+  renderTabs();
+  renderEditor();
+  document.getElementById('nc-requests').textContent = tabs.length;
+  return id;
+}
+
+function closeTab(id,e) {
+  e.stopPropagation();
+  const i=tabs.findIndex(t=>t.id===id);
+  tabs.splice(i,1);
+  if (activeTabId===id) activeTabId=tabs[tabs.length-1]?.id||null;
+  syncVars(); renderTabs(); renderEditor();
+  document.getElementById('nc-requests').textContent=tabs.length;
+}
+
+function setActiveTab(id){ activeTabId=id; renderTabs(); renderEditor(); }
+function activeTab(){ return tabs.find(t=>t.id===activeTabId); }
+function updateTab(field,val){ const t=activeTab(); if(!t)return; t[field]=val; if(field==='body'||field==='url')syncVars(); }
+
+function renderTabs() {
+  const bar=document.getElementById('reqTabsBar');
+  bar.querySelectorAll('.rtab').forEach(el=>el.remove());
+  const anchor=bar.querySelector('.rtab-add');
+  tabs.forEach(t=>{
+    const el=document.createElement('div');
+    el.className='rtab'+(t.id===activeTabId?' active':'');
+    el.innerHTML=`<span class="method-tag m-${t.method}" style="font-size:0.52rem;padding:0.08rem 0.3rem">${t.method}</span><span style="max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</span><button class="rtab-close" onclick="closeTab('${t.id}',event)">✕</button>`;
+    el.addEventListener('click',()=>setActiveTab(t.id));
+    bar.insertBefore(el,anchor);
+  });
+}
+
+function renderEditor() {
+  const ed=document.getElementById('reqEditor');
+  const t=activeTab();
+  if(!t){ed.innerHTML=`<div class="empty"><strong>No requests yet.</strong><br>Click ＋, use a Preset,<br>or import from <strong>cURL Import</strong>.</div>`;return;}
+  ed.innerHTML=`
+    <div class="req-meta-bar">
+      <input class="req-name-inp" value="${esc(t.name)}" placeholder="Request name" oninput="updateTab('name',this.value);renderTabs()">
+    </div>
+    <div class="url-bar">
+      <select class="method-sel" onchange="updateTab('method',this.value);renderTabs();renderEditor()">
+        ${['POST','GET','PUT','DELETE'].map(m=>`<option ${t.method===m?'selected':''}>${m}</option>`).join('')}
+      </select>
+      <input class="url-inp" value="${esc(t.url)}" placeholder="/v2/customers  or full URL" oninput="updateTab('url',this.value)">
+    </div>
+    <div class="body-label"><span>Request Body (JSON)</span><span style="color:var(--dim);font-size:0.55rem">Use {{variable}} for dynamic values</span></div>
+    <textarea class="body-ta" oninput="updateTab('body',this.value)">${esc(t.body)}</textarea>
+    <div class="vars-strip" id="varsStrip"></div>`;
+  updateVarsStrip();
+}
+
+function updateVarsStrip(){
+  const strip=document.getElementById('varsStrip');
+  if(!strip)return;
+  const t=activeTab();
+  if(!t){return;}
+  const names=getVarNamesForTab(t);
+  strip.innerHTML=names.length?names.map(n=>`<span class="vchip">{{${n}}}</span>`).join(''):`<span class="vhint">No {{variables}} detected…</span>`;
+}
+
+function getVarNamesForTab(t){
+  return [...new Set([...(t.url+' '+(t.body||'')).matchAll(/\{\{(\w+)\}\}/g)].map(m=>m[1]))];
+}
+
+function togglePresets(){ document.getElementById('presetDd').classList.toggle('open'); }
+function loadPreset(k){ const p=PRESETS[k]; if(!p)return; addTab(p); document.getElementById('presetDd').classList.remove('open'); }
+document.addEventListener('click',e=>{if(!e.target.closest('.preset-wrap'))document.getElementById('presetDd').classList.remove('open');});
+
+// ═══════════════════════════════════════════
+// VARIABLES
+// ═══════════════════════════════════════════
+function getAllVarNames(){
+  const s=new Set();
+  tabs.forEach(t=>[...(t.url+' '+t.body).matchAll(/\{\{(\w+)\}\}/g)].forEach(m=>s.add(m[1])));
+  return [...s];
+}
+
+function syncVars(){
+  const names=getAllVarNames();
+  names.forEach(n=>{if(!varData[n])varData[n]=[];});
+  updateVarsStrip();
+  renderVarsPanel();
+}
+
+function renderVarsPanel(){
+  const names=getAllVarNames();
+  const body=document.getElementById('varsBody');
+  if(!names.length){
+    body.innerHTML=`<div class="empty" style="padding:1.2rem;font-size:0.68rem;width:100%">Use <code style="color:#a09fff">{{variable}}</code> in your request URLs or body — columns appear here automatically.</div>`;
+    return;
+  }
+  body.innerHTML=names.map(n=>`
+    <div class="var-col" id="vc-${n}">
+      <div class="vc-head"><span class="vc-name">{{${n}}}</span><span class="vc-count">${(varData[n]||[]).length}</span></div>
+      <div class="vc-list" id="vcl-${n}">${(varData[n]||[]).map((v,i)=>vcEntryHTML(n,i,v)).join('')}</div>
+      <div class="vc-add-row">
+        <div class="suggest-wrap" style="flex:1;position:relative">
+          <input class="vc-inp" id="vci-${n}" placeholder="Add…" 
+            oninput="showSuggest('${n}',this.value)" 
+            onkeydown="vcKeyDown(event,'${n}')"
+            onfocus="showSuggest('${n}',this.value)"
+            autocomplete="off">
+          <div class="suggest-dd" id="vsd-${n}"></div>
+        </div>
+        <button class="btn btn-accent" style="font-size:0.58rem;padding:0.22rem 0.5rem" onclick="quickAdd('${n}')">+</button>
+      </div>
+    </div>`).join('');
+}
+
+function vcEntryHTML(n,i,v){
+  return `<div class="vc-entry"><span class="vc-idx">${i+1}</span><input class="vc-val-inp" value="${esc(v)}" onchange="varData['${n}'][${i}]=this.value"><button class="vc-del" onclick="delVar('${n}',${i})">✕</button></div>`;
+}
+
+function quickAdd(n){
+  const inp=document.getElementById(`vci-${n}`);
+  const v=inp.value.trim();
+  if(!v)return;
+  if(!varData[n])varData[n]=[];
+  varData[n].push(v);
+  inp.value='';
+  closeSuggest(n);
+  renderVarsPanel();
+}
+
+function vcKeyDown(e,n){
+  if(e.key==='Enter'){e.preventDefault();quickAdd(n);}
+  if(e.key==='Escape')closeSuggest(n);
+  if(e.key==='ArrowDown'){
+    const dd=document.getElementById(`vsd-${n}`);
+    const first=dd.querySelector('.suggest-item');
+    if(first)first.focus();
+  }
+}
+
+function delVar(n,i){varData[n].splice(i,1);renderVarsPanel();}
+function clearAllVars(){getAllVarNames().forEach(n=>varData[n]=[]);renderVarsPanel();}
+
+// ═══════════════════════════════════════════
+// SMART SUGGESTIONS
+// ═══════════════════════════════════════════
+// responseStore: [{reqName, varName, value, label}]
+function buildSuggestions(varName, typed){
+  const suggestions=[];
+  const seen=new Set();
+
+  // From response store — extract values from previous API responses
+  responseStore.forEach(entry=>{
+    if(entry.varHints){
+      entry.varHints.forEach(hint=>{
+        if(hint.key===varName || varName.includes(hint.keyFragment)){
+          const key=hint.value;
+          if(!seen.has(key)){
+            seen.add(key);
+            suggestions.push({val:hint.value, src:`from ${entry.reqName} response`});
+          }
+        }
+      });
+    }
+  });
+
+  // From existing var columns
+  getAllVarNames().forEach(n=>{
+    if(n!==varName)(varData[n]||[]).forEach(v=>{
+      if(!seen.has(v)){seen.add(v);suggestions.push({val:v,src:`from {{${n}}}`});}
+    });
+  });
+
+  // Filter by typed
+  const filtered = typed
+    ? suggestions.filter(s=>s.val.toLowerCase().includes(typed.toLowerCase()))
+    : suggestions;
+
+  return filtered.slice(0,10);
+}
+
+function showSuggest(n, typed){
+  const dd=document.getElementById(`vsd-${n}`);
+  if(!dd)return;
+  const sugs=buildSuggestions(n, typed);
+  if(!sugs.length){dd.classList.remove('open');return;}
+  dd.innerHTML=sugs.map((s,i)=>`
+    <div class="suggest-item" tabindex="0"
+      onclick="applySuggest('${n}','${esc(s.val)}')"
+      onkeydown="suggestKey(event,'${n}','${esc(s.val)}',${i})">
+      <span class="si-val">${esc(s.val)}</span>
+      <span class="si-src">${esc(s.src)}</span>
+    </div>`).join('');
+  dd.classList.add('open');
+}
+
+function closeSuggest(n){const dd=document.getElementById(`vsd-${n}`);if(dd)dd.classList.remove('open');}
+
+function applySuggest(n,val){
+  const inp=document.getElementById(`vci-${n}`);
+  if(inp)inp.value=val;
+  closeSuggest(n);
+  quickAdd(n);
+}
+
+function suggestKey(e,n,val,idx){
+  if(e.key==='Enter'){applySuggest(n,val);}
+  if(e.key==='ArrowDown'){const next=document.querySelector(`#vsd-${n} .suggest-item:nth-child(${idx+2})`);if(next)next.focus();}
+  if(e.key==='ArrowUp'){
+    if(idx===0){document.getElementById(`vci-${n}`)?.focus();}
+    else{const prev=document.querySelector(`#vsd-${n} .suggest-item:nth-child(${idx})`);if(prev)prev.focus();}
+  }
+}
+
+// Close suggestion dropdowns on outside click
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.suggest-wrap'))
+    document.querySelectorAll('.suggest-dd').forEach(d=>d.classList.remove('open'));
+});
+
+// Extract useful fields from a Square API response
+function extractResponseHints(reqName, responseText){
+  try{
+    const json=JSON.parse(responseText);
+    const hints=[];
+    function walk(obj, path=''){
+      if(!obj||typeof obj!=='object')return;
+      Object.entries(obj).forEach(([k,v])=>{
+        if(typeof v==='string'&&v.length>3&&v.length<120){
+          // Key fragments to recognize as useful
+          const keyFrag = k.toLowerCase();
+          hints.push({key:k, keyFragment:keyFrag, value:v});
+        }
+        if(typeof v==='object')walk(v, path?`${path}.${k}`:k);
+      });
+    }
+    walk(json);
+    responseStore.push({reqName, varHints:hints});
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════
+// BULK IMPORT
+// ═══════════════════════════════════════════
+function openBulk(){
+  const names=getAllVarNames();
+  const sel=document.getElementById('bulkVarSel');
+  sel.innerHTML=names.length?names.map(n=>`<option value="${n}">{{${n}}}</option>`):'<option value="">No variables yet</option>';
+  document.getElementById('bulkTa').value='';
+  document.getElementById('bulkOverlay').classList.add('open');
+}
+function closeBulk(){document.getElementById('bulkOverlay').classList.remove('open');}
+function closeBulkOutside(e){if(e.target===document.getElementById('bulkOverlay'))closeBulk();}
+function doBulkImport(){
+  const n=document.getElementById('bulkVarSel').value;
+  if(!n)return;
+  const lines=document.getElementById('bulkTa').value.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(!varData[n])varData[n]=[];
+  varData[n].push(...lines);
+  closeBulk();
+  renderVarsPanel();
+}
+
+// ═══════════════════════════════════════════
+// RUN ENGINE
+// ═══════════════════════════════════════════
+function setScope(s){
+  scope=s;
+  document.getElementById('sc-all').classList.toggle('active',s==='all');
+  document.getElementById('sc-active').classList.toggle('active',s==='active');
+}
+
+function buildJobs(){
+  const targetTabs=scope==='active'?tabs.filter(t=>t.id===activeTabId):tabs;
+  const varNames=getAllVarNames();
+  const maxRows=Math.max(1,...varNames.map(n=>(varData[n]||[]).length));
+  const jobs=[];
+  for(let i=0;i<maxRows;i++){
+    const row={};
+    varNames.forEach(n=>{const v=varData[n]||[];row[n]=v[i]!==undefined?v[i]:(v[0]||'');});
+    targetTabs.forEach(tab=>{
+      const label=varNames.length?(Object.values(row)[0]||`Row ${i+1}`):`Run ${i+1}`;
+      jobs.push({tab,row,rowIdx:i,label});
+    });
+  }
+  return jobs;
+}
+
+async function runAll(){
+  if(running)return;
+  const token=document.getElementById('tokenInp').value.trim();
+  if(!token){alert('Enter your Square Access Token at the top.');return;}
+  if(!tabs.length){alert('Add at least one request first.');return;}
+  const jobs=buildJobs();
+  if(!jobs.length){alert('No jobs to run. Add variable values or create requests without variables.');return;}
+
+  running=true;stopFlag=false;gStats={ok:0,fail:0,times:[]};
+  results=jobs.map((j,i)=>({idx:i,job:j,status:'pending',code:null,body:'',ms:null}));
+  renderResults();
+  document.getElementById('runBtn').style.display='none';
+  document.getElementById('stopBtn').style.display='inline-block';
+
+  const conc=parseInt(document.getElementById('concInp').value)||3;
+  const delay=parseInt(document.getElementById('delayInp').value)||200;
+  const env=document.getElementById('envSel').value;
+
+  for(let i=0;i<jobs.length;i+=conc){
+    if(stopFlag)break;
+    const batch=jobs.slice(i,i+conc);
+    await Promise.all(batch.map((_,bi)=>executeJob(i+bi,jobs[i+bi],token,env)));
+    setProgress(Math.min(i+conc,jobs.length),jobs.length);
+    if(delay>0&&i+conc<jobs.length)await sleep(delay);
+  }
+  running=false;
+  document.getElementById('runBtn').style.display='inline-block';
+  document.getElementById('stopBtn').style.display='none';
+}
+
+async function executeJob(idx,job,token,env){
+  results[idx].status='running';renderRow(idx);
+  const base=BASE[env]||BASE.sandbox;
+  let url=job.tab.url.trim();
+  if(url.startsWith('/'))url=base+url;
+  url=interp(url,job.row);
+  const bodyStr=interp(job.tab.body||'',job.row);
+  const t0=Date.now();
+  try{
+    const opts={method:job.tab.method,headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json','Square-Version':'2024-01-18'}};
+    if(bodyStr&&job.tab.method!=='GET')opts.body=bodyStr;
+    const resp=await fetch(url,opts);
+    const ms=Date.now()-t0;
+    const text=await resp.text();
+    results[idx].status=resp.ok?'ok':'error';
+    results[idx].code=resp.status;
+    results[idx].body=prettyJSON(text);
+    results[idx].ms=ms;
+    if(resp.ok){gStats.ok++;gStats.times.push(ms);extractResponseHints(job.tab.name,text);}
+    else gStats.fail++;
+  }catch(e){
+    results[idx].status='error';results[idx].code='NET';results[idx].body=e.message;results[idx].ms=Date.now()-t0;gStats.fail++;
+  }
+  renderRow(idx);updateGStats();
+}
+
+function stopAll(){
+  stopFlag=true;
+  results.forEach(r=>{if(r.status==='pending')r.status='stopped';});
+  renderResults();
+}
+
+// ═══════════════════════════════════════════
+// RENDER RESULTS
+// ═══════════════════════════════════════════
+function renderResults(){
+  const list=document.getElementById('resultsList');
+  if(!results.length){list.innerHTML=`<div class="empty">Results appear here after running.<br><span style="color:var(--dim)">Click any row to expand the response.</span></div>`;return;}
+  list.innerHTML=results.map((r,i)=>rowHTML(r,i)).join('');
+}
+function renderRow(idx){
+  const el=document.getElementById(`rrow-${idx}`);
+  const html=rowHTML(results[idx],idx);
+  if(el){const t=document.createElement('div');t.innerHTML=html;el.replaceWith(t.firstElementChild);}
+  else renderResults();
+}
+function rowHTML(r,idx){
+  const sc=r.status==='ok'?'s-ok':r.status==='error'?'s-err':r.status==='running'?'s-run':'s-wait';
+  const code=r.code!=null?r.code:(r.status==='running'?'…':'—');
+  const time=r.ms!=null?`${r.ms}ms`:'';
+  return`<div class="result-row" id="rrow-${idx}">
+    <div class="result-main" onclick="toggleDrawer(${idx})">
+      <span class="r-num">${idx+1}</span>
+      <span class="r-st ${sc}">${code}</span>
+      <span class="r-req">${esc(r.job?.tab?.name||'')}</span>
+      <span class="r-val">${esc(r.job?.label||'')}</span>
+      <span class="r-time">${time}</span>
+    </div>
+    <div class="result-drawer" id="rd-${idx}">${esc(r.body||'')}</div>
+  </div>`;
+}
+function toggleDrawer(idx){document.getElementById(`rd-${idx}`)?.classList.toggle('open');}
+function clearResults(){results=[];gStats={ok:0,fail:0,times:[]};renderResults();setProgress(0,0);updateGStats();}
+function setProgress(done,total){
+  const pct=total>0?Math.round(done/total*100):0;
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('progText').textContent=total>0?`${done} / ${total}`:'Ready';
+  document.getElementById('progPct').textContent=total>0?`${pct}%`:'';
+}
+function updateGStats(){
+  const done=results.filter(r=>r.status!=='pending'&&r.status!=='running').length;
+  document.getElementById('gTot').textContent=done;
+  document.getElementById('gOk').textContent=gStats.ok;
+  document.getElementById('gFail').textContent=gStats.fail;
+  document.getElementById('gAvg').textContent=gStats.times.length?Math.round(gStats.times.reduce((a,b)=>a+b,0)/gStats.times.length)+'ms':'—';
+}
+
+// ═══════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════
+function interp(s,vars){return s.replace(/\{\{(\w+)\}\}/g,(_,k)=>vars[k]??`{{${k}}}`);}
+function prettyJSON(t){try{return JSON.stringify(JSON.parse(t),null,2);}catch{return t;}}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
+
+// Resize handle
+const rh=document.getElementById('resizeH'),rl=document.getElementById('reqLeft');
+let rsz=false,rsxS=0,rwS=0;
+rh.addEventListener('mousedown',e=>{rsz=true;rsxS=e.clientX;rwS=rl.offsetWidth;document.body.style.userSelect='none';});
+document.addEventListener('mousemove',e=>{if(!rsz)return;rl.style.width=Math.max(260,Math.min(700,rwS+e.clientX-rsxS))+'px';});
+document.addEventListener('mouseup',()=>{rsz=false;document.body.style.userSelect='';});
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+loadToken();
+</script>
+</body>
+</html>
